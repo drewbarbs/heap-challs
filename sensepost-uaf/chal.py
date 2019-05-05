@@ -20,7 +20,7 @@ first_elf_mapping = next(l for l in mappings.split('\\n') if '{chal}' in l)
 base_addr = int(first_elf_mapping.lstrip().split()[0], 16)
 gdb.execute('add-symbol-file "{chal}" {{}}'.format(hex(base_addr + {offset})))
 end
-b challenge-uaf.c:84
+b challenge-uaf.c:98
 c
 '''.format(chal=CHAL_BIN, offset=CHAL_ELF.get_section_by_name('.text').header['sh_offset']))
 
