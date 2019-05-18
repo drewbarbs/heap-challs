@@ -1,28 +1,33 @@
 #!/usr/bin/env python
 
-'''
-Run with NOPTRACE to have no debugging
-'''
-
 import os
+import re
+import textwrap
+
 from pwn import *
 
 CHAL_BIN = os.path.abspath('./uaf')
-CHAL_ELF = ELF(CHAL_BIN)
 
-p = process(['./glibc_versions/ld-2.25.so', CHAL_BIN],
-            env={'LD_PRELOAD': os.path.abspath('./glibc_versions/libc-2.25.so')})
+if not context.noptrace:
+    CHAL_ELF = ELF(CHAL_BIN)
 
-gdb.attach(p, '''
-python
-mappings = gdb.execute('info proc map', to_string=True)
-first_elf_mapping = next(l for l in mappings.split('\\n') if '{chal}' in l)
-base_addr = int(first_elf_mapping.lstrip().split()[0], 16)
-gdb.execute('add-symbol-file "{chal}" {{}}'.format(hex(base_addr + {offset})))
-end
-b challenge-uaf.c:98
-c
-'''.format(chal=CHAL_BIN, offset=CHAL_ELF.get_section_by_name('.text').header['sh_offset']))
+    p = process(['./glibc_versions/ld-2.25.so', CHAL_BIN],
+                env={'LD_PRELOAD': os.path.abspath('./glibc_versions/libc-2.25.so')})
+
+    gdb.attach(p, textwrap.dedent('''
+    python
+    mappings = gdb.execute('info proc map', to_string=True)
+    first_elf_mapping = next(l for l in mappings.split('\\n') if '{chal}' in l)
+    base_addr = int(first_elf_mapping.lstrip().split()[0], 16)
+    gdb.execute('add-symbol-file "{chal}" {{}}'.format(hex(base_addr + {offset})))
+    end
+    b challenge-uaf.c:75
+    c
+    '''.format(chal=CHAL_BIN, offset=CHAL_ELF.get_section_by_name('.text').header['sh_offset'])))
+else:
+    p = process(CHAL_BIN)
+    # block until server binds port
+    p.recvline_contains('Listening port')
 
 r = remote('localhost', 9999)
 # Print the address of the flag
